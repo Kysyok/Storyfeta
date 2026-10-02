@@ -1,0 +1,50 @@
+# Local dev/prod-parity stack: web + release (one-off) + worker + redis + postgres.
+#   docker compose up --build
+x-app: &app
+  build: .
+  environment: &env
+    SECRET_KEY: ${SECRET_KEY:-dev-only-secret-change-me-please-0123456789}
+    REDIS_URL: redis://redis:6379/0
+    DATABASE_URL: postgresql+asyncpg://storyfeta:storyfeta@postgres:5432/storyfeta
+    PORT: ${PORT:-8000}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+
+services:
+  web:
+    <<: *app
+    ports: ["${PORT:-8000}:${PORT:-8000}"]
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      release: { condition: service_completed_successfully }
+    stop_grace_period: 15s   # lets the app close WebSockets before SIGKILL
+
+  release:                   # one-off admin process: apply migrations, then exit
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  worker:                    # optional: removes idle rooms on a schedule
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      redis: { condition: service_healthy }
+
+  redis:
+    image: redis:7-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: storyfeta
+      POSTGRES_PASSWORD: storyfeta
+      POSTGRES_DB: storyfeta
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U storyfeta"], interval: 5s, timeout: 3s, retries: 10 }
+
+volumes:
+  pgdata:

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block page %}home{% endblock %}
+{% block main %}
+<div class="home" data-code-length="{{ code_length }}">
+    <div class="how">
+      <span class="how__label" aria-hidden="true">How it works</span>
+      <img class="how__x" src="{{ static('img/deco-cross-purple.svg') }}" alt="" aria-hidden="true">
+      <p class="how__text">Write one line. Pass the story. Reveal the chaos together!</p>
+    </div>
+
+    <section class="card card--purple who" aria-labelledby="who-title">
+      {% if account_nickname %}
+        <h2 id="who-title" class="card__title">Hello, {{ account_nickname }}!</h2>
+        <a class="btn btn--purple" href="/account">Profile</a>
+      {% else %}
+        <h2 id="who-title" class="card__title">Enter your name</h2>
+        <label class="sr-only" for="nickname">Your name</label>
+        <span class="field field--purple"><input id="nickname" maxlength="20" autocomplete="nickname" spellcheck="false"></span>
+        {% if accounts_enabled %}
+          <p class="who__or">or</p>
+          <a class="btn btn--purple" href="/account">Sign in / Log in</a>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    <form class="card card--berry host" id="host-form" novalidate>
+      <h2 class="card__title">Host a story</h2>
+      <button class="btn btn--berry" type="submit">Create room</button>
+      <p class="form-error" role="alert" hidden></p>
+    </form>
+
+    <form class="card card--navy join" id="join-form" novalidate>
+      <img class="home__x" src="{{ static('img/deco-cross-purple.svg') }}" alt="" aria-hidden="true">
+      <h2 class="card__title">Join a story</h2>
+      <p class="join__label" id="code-label">Room code</p>
+      <div class="code" role="group" aria-labelledby="code-label">
+        {% for i in range(code_length) %}
+          <span class="field"><input class="code__cell" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Room code character {{ loop.index }}"></span>
+        {% endfor %}
+      </div>
+      <button class="btn btn--navy" type="submit">Join room</button>
+      <p class="form-error" role="alert" hidden></p>
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ static('js/entry.js') }}"></script>{% endblock %}

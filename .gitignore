@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# downloaded by scripts/fetch_fonts.py or the Docker build; commit them if you prefer
+# app/static/fonts/*.woff2

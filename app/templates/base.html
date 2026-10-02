@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Storyfeta{% endblock %}</title>
+  <meta name="description" content="A party game where friends write absurd stories one line at a time.">
+  <link rel="icon" href="{{ static('img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ static('css/app.css') }}">
+</head>
+<body data-page="{% block page %}app{% endblock %}">
+  {# Hand-drawn wobble used by buttons, fields and chips (see .btn::before in app.css). #}
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true" focusable="false">
+    <filter id="rough" x="-5%" y="-12%" width="110%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+  {# Background with frame and doodles: swap /static/img/background.png (1920x1080) #}
+  <div class="scene" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="site-header__side">{% block header_left %}{% endblock %}</div>
+    {# Logo slot: replace /static/img/logo.svg to change it, no code needed. #}
+    <a class="site-header__logo" href="/" aria-label="Storyfeta home">
+      <img src="{{ static('img/logo.svg') }}" alt="Storyfeta" width="547" height="217">
+    </a>
+    <nav class="site-header__side site-header__side--right" aria-label="Main">
+      {# The Profile / Sign in button lives only on the home page cards. #}
+      {% block nav_account %}{% endblock %}
+    </nav>
+  </header>
+  <main class="shell">
+    {% block main %}{% endblock %}
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="{{ static('js/common.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

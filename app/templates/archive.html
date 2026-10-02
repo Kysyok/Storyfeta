@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Saved game · Storyfeta{% endblock %}
+{% block main %}
+<div id="archive-app" class="card card--purple card--wide card--left" data-game-id="{{ game_id }}">
+  <h1 id="archive-title" class="card__title">Saved game</h1>
+  <p class="lede" id="archive-sub"></p>
+  <form id="rename-form" class="archive-edit" autocomplete="off" hidden>
+    <label class="settings__label" for="game-title">Title</label>
+    <div class="form-row">
+      <span class="field field--purple"><input id="game-title" maxlength="80"></span>
+      <button class="btn btn--purple btn--small" type="submit">Save</button>
+      <button id="delete-game" class="btn btn--secondary btn--small" type="button">Delete game</button>
+    </div>
+    <p class="form-error" role="alert" hidden></p>
+  </form>
+  <div id="archive-stories"></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ static('js/archive.js') }}"></script>{% endblock %}

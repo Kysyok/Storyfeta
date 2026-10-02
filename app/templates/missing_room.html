@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Not found · Storyfeta{% endblock %}
+{% block main %}
+<section class="card card--berry card--narrow">
+  <h1 class="card__title">Nothing here</h1>
+  <p class="lede">
+    {% if code %}There is no room called {{ code }}. Rooms close after a while, so the code may have expired. Check it with whoever sent it.
+    {% else %}That page doesn't exist.{% endif %}
+  </p>
+  <a class="btn btn--berry" href="/">Back to start</a>
+</section>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Join {{ code }} · Storyfeta{% endblock %}
+{% block main %}
+<section class="card card--purple card--narrow">
+  <h1 class="card__title">Room {{ code }}</h1>
+  {% if joinable %}
+    <p class="lede">{{ host_name }} is setting up a game. {{ "You're all set." if account_nickname else "Pick a nickname and you're in." }}</p>
+    <form data-endpoint="/api/rooms/{{ code }}/join" autocomplete="off">
+      {% if account_nickname %}
+        <p class="playing-as">Joining as <strong>{{ account_nickname }}</strong>. <a href="/account">Change in Profile</a></p>
+      {% endif %}
+      <div data-nickname-field {{ "hidden" if account_nickname }}>
+        <label class="sr-only" for="nickname">Your nickname</label>
+        <span class="field field--purple"><input id="nickname" name="nickname" maxlength="20" {{ "" if account_nickname else "required autofocus" }} placeholder="Your name"></span>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <p style="margin-top:1.2rem"><button class="btn btn--purple" type="submit">Join room</button></p>
+    </form>
+  {% else %}
+    <p class="lede">This game has already started or is full. Ask {{ host_name }} to start a new room.</p>
+    <p><a class="btn btn--purple" href="/">Back to start</a></p>
+  {% endif %}
+</section>
+{% endblock %}

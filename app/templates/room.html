@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Room {{ code }} · Storyfeta{% endblock %}
+{% block header_left %}
+  <button class="room-chip" id="copy-link" type="button" title="Copy invite link">
+    <span class="room-chip__code">{{ code }}</span>
+    <span class="room-chip__hint" id="copy-hint">Copy invite link</span>
+  </button>
+{% endblock %}
+{% block main %}
+<div id="app" data-code="{{ code }}">
+  <p id="connection" class="banner" role="status" hidden>Reconnecting…</p>
+  <p id="loading" class="lede">Opening the room…</p>
+
+  <!-- Lobby: Waiting for players + Game settings -->
+  <section id="view-lobby" class="view" hidden>
+    <div class="lobby">
+      <div class="card card--berry">
+        <h1 class="card__title card__title--rule">Waiting for players</h1>
+        <ul id="player-list" class="chips" aria-label="Players in the room"></ul>
+        <p class="lobby__hint" id="lobby-invite">Friends join with the code <strong class="code-inline">{{ code }}</strong> or the invite link.</p>
+      </div>
+
+      <form id="settings-form" class="card card--navy settings" autocomplete="off">
+        <h2 class="card__title card__title--rule">Game settings</h2>
+        <div class="settings__row">
+          <label class="settings__label" for="set-rounds">Turns:</label>
+          <span class="field field--num field--navy"><input id="set-rounds" type="number" inputmode="numeric"></span>
+        </div>
+        <div class="settings__row">
+          <label class="settings__label" for="set-seconds">Seconds per turn:</label>
+          <span class="field field--num field--navy"><input id="set-seconds" type="number" inputmode="numeric"></span>
+        </div>
+        <label class="check settings__check"><input id="set-notimer" type="checkbox"> No time limit</label>
+        <p id="settings-summary" class="settings__summary" hidden></p>
+      </form>
+    </div>
+    <div class="lobby__actions">
+      <button id="start-game" class="btn btn--berry" type="button" hidden>Start writing!</button>
+      <p id="lobby-wait" class="hint" hidden></p>
+    </div>
+  </section>
+
+  <!-- Writing -->
+  <section id="view-write" class="view card card--berry card--wide card--left" hidden>
+    <div class="progress">
+      <h1 id="write-title" class="card__title">Line 1</h1>
+      <div class="timer" id="timer" hidden>
+        <div class="timer__track"><div class="timer__bar" id="timer-bar"></div></div>
+        <span class="timer__text" id="timer-text">0:00</span>
+      </div>
+      <span class="timer__text" id="no-timer" hidden>No time limit</span>
+    </div>
+
+    <div id="prompt" class="fold" hidden>
+      <p class="fold__note" aria-hidden="true">The rest of this story is folded away.</p>
+      <blockquote class="slip slip--prompt"><span id="prompt-text"></span></blockquote>
+    </div>
+    <p id="prompt-empty" class="lede" hidden></p>
+
+    <form id="write-form" class="write" autocomplete="off">
+      <label for="line-input" class="sr-only">Your line</label>
+      <textarea id="line-input" rows="3" placeholder="What happens next?" required></textarea>
+      <div class="write__foot">
+        <span id="char-count" class="hint"></span>
+        <button class="btn btn--berry" type="submit" id="submit-line">Pass it on</button>
+      </div>
+    </form>
+
+    <div id="submitted" class="submitted" hidden>
+      <h2>Passed on.</h2>
+      <p id="waiting-text" class="lede" aria-live="polite"></p>
+      <p class="hint">Your line is locked. Press “Edit line” to change it; the next turn starts once everyone has passed theirs on.</p>
+    </div>
+  </section>
+
+  <!-- Reveal -->
+  <section id="view-reveal" class="view card card--purple card--wide card--left" hidden>
+    <h1 id="reveal-title" class="card__title">Story</h1>
+    <p id="reveal-sub" class="lede"></p>
+    <ol id="strips" class="strips"></ol>
+    <p id="reveal-empty" class="hint" hidden>Nothing is uncovered yet.</p>
+    <div class="actions actions--sticky">
+      <button id="reveal-next" class="btn btn--purple" type="button" hidden></button>
+      <p id="reveal-wait" class="hint" hidden>The host uncovers the next line.</p>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="view-results" class="view card card--navy card--wide card--left" hidden>
+    <h1 class="card__title">Best lines</h1>
+    <ol id="top-lines" class="strips"></ol>
+    <p id="no-top" class="lede" hidden>Nobody reacted to a line this time.</p>
+    <p id="saved-note" class="hint" hidden>This game was saved to <a href="/account">your profile</a>.</p>
+    <p class="actions"><a class="btn btn--navy" href="/">Back to start</a></p>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ static('js/room.js') }}"></script>{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Profile · Storyfeta{% endblock %}
+{% block page %}account{% endblock %}
+{# A way back to the start screen. #}
+{% block nav_account %}<a class="btn btn--secondary btn--small" href="/">Home</a>{% endblock %}
+{% block main %}
+<div id="account-app">
+  <section id="auth-view" class="card card--purple card--narrow" hidden>
+    <h1 class="card__title">Sign in</h1>
+    <p class="lede">You never need an account to host or play. Sign in only if you want your nickname remembered and every game you play kept in your history.</p>
+    <form id="auth-form" class="form-col" autocomplete="on">
+      <label for="email">Email</label>
+      <span class="field field--purple"><input id="email" name="email" type="email" autocomplete="email" required></span>
+      <label for="password">Password</label>
+      <span class="field field--purple"><input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required></span>
+      <label for="reg-nickname">Nickname <span class="hint">(new accounts; change it later)</span></label>
+      <span class="field field--purple"><input id="reg-nickname" name="nickname" maxlength="20" autocomplete="nickname" placeholder="Captain Semicolon"></span>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="actions">
+        <button class="btn btn--purple" type="submit" data-mode="login">Sign in</button>
+        <button class="btn btn--navy" type="submit" data-mode="register">Create account</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="me-view" class="profile" hidden>
+    <div class="card card--purple">
+      <h1 class="card__title">Profile</h1>
+      <p class="lede" id="me-email"></p>
+      <form id="nickname-form" autocomplete="off">
+        <label class="settings__label" for="me-nickname">Nickname</label>
+        <p class="hint">Used automatically whenever you host or join a room.</p>
+        <div class="form-row">
+          <span class="field field--purple"><input id="me-nickname" maxlength="20" required></span>
+          <button class="btn btn--purple btn--small" type="submit">Save</button>
+        </div>
+        <p class="form-error" role="alert" hidden></p>
+      </form>
+      <p class="actions profile__account">
+        <button id="logout" class="btn btn--secondary btn--small" type="button">Sign out</button>
+        <button id="delete-account" class="btn btn--berry btn--small" type="button">Delete account</button>
+      </p>
+    </div>
+
+    <form id="defaults-form" class="card card--navy settings" autocomplete="off">
+      <h2 class="card__title">Defaults for new rooms</h2>
+      <div class="settings__row"><label class="settings__label" for="def-rounds">Turns:</label><span class="field field--num field--navy"><input id="def-rounds" type="number" min="2" max="20" required></span></div>
+      <div class="settings__row"><label class="settings__label" for="def-seconds">Seconds per turn:</label><span class="field field--num field--navy"><input id="def-seconds" type="number" min="10" max="600"></span></div>
+      <label class="check settings__check"><input id="def-notimer" type="checkbox"> No time limit</label>
+      <p class="form-error" role="alert" hidden></p>
+      <button class="btn btn--navy btn--small" type="submit">Save defaults</button>
+    </form>
+
+    <div class="card card--berry profile__history">
+      <h2 class="card__title">Game history</h2>
+      <ul id="archive-list" class="archive"></ul>
+      <p id="archive-empty" class="hint" hidden>No games yet. Every game you play while signed in is saved here when it finishes.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ static('js/account.js') }}"></script>{% endblock %}
