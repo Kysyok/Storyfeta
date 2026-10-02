@@ -1,13 +1,17 @@
-"""Alembic environment: async engine, URL from DATABASE_URL, run as ``alembic upgrade head``."""
+"""Alembic environment: async engine, URL from DATABASE_URL, run as ``alembic upgrade head``.
+
+DATABASE_URL is read like the app reads it: the environment first, then ``.env``
+(local development only).
+"""
 
 from __future__ import annotations
 
 import asyncio
-import os
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.models.orm import Base
@@ -16,8 +20,16 @@ config = context.config
 target_metadata = Base.metadata
 
 
+class _MigrationSettings(BaseSettings):
+    """Only what migrations need, so they run without SECRET_KEY or Redis settings."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    database_url: str | None = None
+
+
 def _url() -> str:
-    url = os.environ.get("DATABASE_URL")
+    url = _MigrationSettings().database_url
     if not url:
         raise RuntimeError("DATABASE_URL must be set to run migrations")
     return url
