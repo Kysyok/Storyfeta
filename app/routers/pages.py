@@ -95,9 +95,19 @@ async def archive_page(
     return await _render(request, container, "archive.html", game_id=game_id)
 
 
+@router.get("/readyz")
+async def readyz(container: Container = Depends(get_container)) -> JSONResponse:
+    """Readiness: only Redis is required to serve games; PostgreSQL backs accounts alone."""
+    try:
+        await container.redis.ping()
+    except Exception:
+        return JSONResponse({"status": "unavailable", "redis": "unavailable"}, status_code=503)
+    return JSONResponse({"status": "ok", "redis": "ok"})
+
+
 @router.get("/healthz")
 async def healthz(container: Container = Depends(get_container)) -> JSONResponse:
-    """Liveness/readiness: succeeds only if Redis (and PostgreSQL, when configured) answer."""
+    """Full health for monitoring: Redis and (when configured) PostgreSQL must both answer."""
     checks: dict[str, str] = {}
     try:
         await container.redis.ping()

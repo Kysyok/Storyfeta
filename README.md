@@ -126,6 +126,7 @@ CRUD over the PostgreSQL entities (`services/accounts.py`, `routers/accounts.py`
 | `PATCH /api/archive/{id}` `{title}` | rename a saved game (`null`/empty resets to the room code) |
 | `DELETE /api/archive/{id}` | remove a game from your history (other players keep theirs) |
 | `GET /healthz` | health check: Redis and PostgreSQL (503 if either is down) |
+| `GET /readyz` | readiness: Redis only (503 if down); games keep running without PostgreSQL |
 | `GET /api/docs` | Swagger UI (OpenAPI schema at `/api/openapi.json`) |
 | Pages: `/`, `/r/{code}`, `/account` (Profile), `/archive/{id}` | Jinja2 |
 
