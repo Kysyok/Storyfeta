@@ -1,0 +1,28 @@
+---
+# Release process: apply database migrations once, then exit.
+# Re-run after a new image: kubectl delete job storyfeta-migrate && kubectl apply -f k8s/20-migrate-job.yml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: storyfeta-migrate
+spec:
+  backoffLimit: 4
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+      - name: migrate
+        image: storyfeta:0.2
+        imagePullPolicy: IfNotPresent
+        command: ["alembic", "upgrade", "head"]
+        envFrom:
+        - configMapRef:
+            name: storyfeta-config
+        - secretRef:
+            name: storyfeta-secret
+      restartPolicy: Never
+...

@@ -1,0 +1,34 @@
+---
+# Optional housekeeping process: removes idle rooms on a schedule.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storyfeta-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storyfeta-worker
+  template:
+    metadata:
+      labels:
+        app: storyfeta-worker
+    spec:
+      containers:
+      - name: worker
+        image: storyfeta:0.2
+        imagePullPolicy: IfNotPresent
+        command: ["python", "-m", "app.worker"]
+        envFrom:
+        - configMapRef:
+            name: storyfeta-config
+        - secretRef:
+            name: storyfeta-secret
+        resources:
+          requests:
+            cpu: 20m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+...
