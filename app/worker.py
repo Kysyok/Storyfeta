@@ -24,7 +24,12 @@ log = logging.getLogger("app.worker")
 async def run() -> None:
     """Delete idle rooms every ``CLEANUP_INTERVAL_SECONDS`` until told to stop."""
     settings = get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(
+        "storyfeta-worker",
+        level=settings.log_level,
+        service_version=settings.service_version,
+        env=settings.app_env,
+    )
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     rooms = RoomService(
         RedisRoomStore(redis, settings.room_ttl_seconds),

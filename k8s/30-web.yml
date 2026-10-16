@@ -21,7 +21,7 @@ spec:
       terminationGracePeriodSeconds: 15   # lets the app close WebSockets before SIGKILL
       containers:
       - name: web
-        image: storyfeta:0.2
+        image: storyfeta:0.4
         imagePullPolicy: IfNotPresent
         envFrom:
         - configMapRef:

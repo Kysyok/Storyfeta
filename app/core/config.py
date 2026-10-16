@@ -10,6 +10,7 @@ from functools import lru_cache
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.logging import package_version
 from app.game.engine import Rules
 from app.models.domain import Settings as GameSettings
 
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     port: int = 8000
     app_env: str = "development"
     log_level: str = "INFO"
+    # service.version in logs; service.name is fixed per process (web / worker / migrate).
+    service_version: str = Field(default_factory=package_version)
     shutdown_timeout_seconds: int = 10
 
     # Backing services

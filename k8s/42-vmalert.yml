@@ -1,0 +1,128 @@
+---
+# vmalert: evaluates LogsQL alerting rules against VictoriaLogs every 30s.
+# No Alertmanager here (-notifier.blackhole): firing alerts are visible in vmalert's UI.
+#   kubectl port-forward svc/vmalert 8880:8880
+#   then open http://localhost:8880/vmalert/alerts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmalert-rules
+data:
+  # Each rule is a LogsQL query with a `stats` pipe: every result row is one alert
+  # (the `by (...)` fields become its labels). The threshold is the `filter` pipe:
+  # no rows = nothing firing. `fields` keeps only the value we alert on, otherwise
+  # every stats result would become its own alert.
+  storyfeta.yml: |
+    groups:
+    - name: storyfeta-logs
+      type: vlogs
+      interval: 30s
+      rules:
+      # Any error line from our services: crashes, lost Redis, 5xx.
+      - alert: StoryfetaErrorLogs
+        expr: >-
+          _time:5m service.name:storyfeta-* level:error
+          | stats by (service.name) count() as errors
+          | filter errors:>0
+          | rename service.name as service
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.service }}: {{ $value }} error lines in the last 5m'
+          logsql: '_time:5m service.name:{{ $labels.service }} level:error'
+
+      # The latency query from Отчёт.md (г) with a threshold; needs enough traffic
+      # so that one slow request (e.g. a big image) can't fire it.
+      - alert: StoryfetaSlowRoute
+        expr: >-
+          _time:5m logger:app.access status:*
+          | stats by (route) count() as requests, quantile(0.95, duration_ms) as p95_ms
+          | filter requests:>=20 p95_ms:>300
+          | fields route, p95_ms
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.route }}: p95 {{ $value }} ms over the last 5m'
+
+      # 4xx responses. Each run of scripts/generate_traffic.py
+      # makes 8 deliberate 4xx, so this one is easy to see firing.
+      - alert: StoryfetaClientErrorBurst
+        expr: >-
+          _time:5m service.name:storyfeta-web status:>=400 status:<500
+          | stats count() as client_errors
+          | filter client_errors:>=5
+        labels:
+          severity: info
+        annotations:
+          summary: '{{ $value }} 4xx responses in the last 5m'
+          logsql: '_time:5m status:>=400 | stats by (status, route) count()'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmalert
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vmalert
+  template:
+    metadata:
+      labels:
+        app: vmalert
+    spec:
+      containers:
+      - name: vmalert
+        image: victoriametrics/vmalert:v1.153.0
+        args:
+        - -rule=/etc/vmalert/*.yml
+        - -rule.defaultRuleType=vlogs
+        - -datasource.url=http://victoria-logs:9428
+        - -notifier.blackhole
+        - -httpListenAddr=:8880
+        - -external.url=http://localhost:8880   # links in alerts point to the port-forward
+        - -loggerFormat=json
+        ports:
+        - name: http
+          containerPort: 8880
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: rules
+          mountPath: /etc/vmalert
+          readOnly: true
+      volumes:
+      - name: rules
+        configMap:
+          name: vmalert-rules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmalert
+spec:
+  ports:
+  - name: http
+    port: 8880
+    targetPort: http
+  selector:
+    app: vmalert
+  type: ClusterIP
+...
