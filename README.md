@@ -39,12 +39,25 @@ uv run ruff check . && uv run ruff format .
 All configuration is environment variables (`.env.example`). No state lives in process memory:
 rooms, round deadlines and presence are in Redis, so a restarted process resumes running games.
 
+### Logs
+
+One JSON object per line on stdout. Every HTTP request and WebSocket connection gets a
+`request_id` (taken from an incoming `X-Request-ID` header, otherwise generated, and returned
+in the `X-Request-ID` response header), and every line logged while handling it, including
+uvicorn's access line and any traceback, carries that id plus `room` and, once known,
+`player_id`. One request: filter by `request_id`. A whole game across endpoints, sockets and
+replicas: filter by `room`.
+
+```json
+{"level": "info", "logger": "uvicorn.access", "msg": "... \"POST /api/rooms/ABCD/join HTTP/1.1\" 200", "request_id": "3f9c...", "room": "ABCD", "player_id": "..."}
+```
+
 ## Structure
 
 ```
 app/
   main.py, __main__.py, worker.py   app factory + lifespan, web entrypoint, cleanup worker
-  core/        config (pydantic-settings), JSON logging, JWT + scrypt password hashing,
+  core/        config (pydantic-settings), JSON logging + request_context.py, JWT + scrypt password hashing,
                assets.py (cache-busting static URLs)
   models/      domain.py (dataclasses in Redis), orm.py (SQLAlchemy, Postgres)
   game/        engine.py (all rules, pure), results.py, snapshot.py, archive.py, errors.py

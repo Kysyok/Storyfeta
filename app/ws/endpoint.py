@@ -9,6 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.core import security
+from app.core.logging import bind_log_context
 from app.game.errors import GameError
 from app.models.domain import Settings
 from app.routers.deps import PLAYER_COOKIE_PREFIX, Container
@@ -86,6 +87,7 @@ async def room_socket(websocket: WebSocket, code: str) -> None:
         await websocket.close(code=CLOSE_ROOM_GONE)
         return
 
+    bind_log_context(player_id=claims.player_id)
     hub: Hub = container.hub
     connection: Connection = await hub.register(code, websocket, claims.player_id)
     try:
@@ -103,10 +105,14 @@ async def room_socket(websocket: WebSocket, code: str) -> None:
             try:
                 await _dispatch(container, code, claims.player_id, message)
             except GameError as exc:
+                log.info(
+                    "message rejected",
+                    extra={"type": type(message).__name__, "code": exc.code},
+                )
                 await hub.send_error(connection, exc.code, exc.message)
     except WebSocketDisconnect:
         pass
     except Exception:
-        log.exception("websocket crashed", extra={"room": code})
+        log.exception("websocket crashed")
     finally:
         await hub.unregister(code, connection)

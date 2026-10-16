@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.core import security
+from app.core.logging import bind_log_context
 from app.game.errors import GameError
 from app.models.domain import Phase, Room, Settings
 from app.routers.deps import (
@@ -83,6 +84,7 @@ async def create_room(
         settings,
         str(account.id) if account else None,
     )
+    bind_log_context(room=room.code, player_id=player_id)
     return _joined(container, response, room.code, player_id)
 
 
@@ -104,6 +106,7 @@ async def join_room(
     room = await container.rooms.get_room(code)
     returning = _returning_player(request, container, room, account)
     if returning is not None:
+        bind_log_context(player_id=returning)
         return _joined(container, response, code, returning)
     player_id = security.new_player_id()
     await container.rooms.join_room(
@@ -112,6 +115,7 @@ async def join_room(
         _nickname(body.nickname, account),
         str(account.id) if account else None,
     )
+    bind_log_context(player_id=player_id)
     return _joined(container, response, code, player_id)
 
 

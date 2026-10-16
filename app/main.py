@@ -20,6 +20,7 @@ from redis.asyncio import Redis
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.request_context import RequestContextMiddleware
 from app.game.errors import GameError
 from app.routers import accounts, pages, rooms
 from app.routers.deps import Container
@@ -117,4 +118,5 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+# Outermost, so even Starlette's 500 handler and uvicorn's access log see the context.
+app = RequestContextMiddleware(create_app())
