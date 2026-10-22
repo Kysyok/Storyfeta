@@ -1,9 +1,10 @@
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
 spec:
+  serviceName: redis        # stable DNS: redis-0.redis
   replicas: 1
   selector:
     matchLabels:
@@ -16,6 +17,8 @@ spec:
       containers:
       - name: redis
         image: redis:7-alpine
+        # Rooms, deadlines and presence live here: keep them across pod restarts.
+        args: ["redis-server", "--appendonly", "yes"]
         ports:
         - containerPort: 6379
         readinessProbe:
@@ -34,6 +37,18 @@ spec:
           limits:
             cpu: 250m
             memory: 128Mi
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 512Mi
 ---
 apiVersion: v1
 kind: Service
@@ -45,5 +60,5 @@ spec:
     targetPort: 6379
   selector:
     app: redis
-  type: ClusterIP
+  clusterIP: None           # headless, required by the StatefulSet
 ...

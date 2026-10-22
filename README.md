@@ -68,7 +68,7 @@ game across endpoints, sockets and replicas: filter by `room`.
 pod stdout ─▶ /var/log/pods on the node ─▶ Vector (DaemonSet) ─▶ VictoriaLogs ─▶ vmui / LogsQL
 ```
 
-- `k8s/40-victoria-logs.yml`: VictoriaLogs single-node (Deployment + 2Gi PVC + ClusterIP
+- `k8s/40-victoria-logs.yml`: VictoriaLogs single-node (StatefulSet with a 2Gi volume, headless
   Service `victoria-logs:9428`), 7 days or 1500MiB of retention.
 - `k8s/41-vector.yml`: Vector DaemonSet with RBAC. It tails every pod outside `kube-system`, turns
   JSON lines into fields (non-JSON lines such as postgres/redis stay in `_msg`, with
