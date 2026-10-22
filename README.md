@@ -24,7 +24,7 @@ Without Docker: `uv sync`, copy `.env.example` to `.env`, start Redis (and Postg
 `uv run python -m app`.
 
 ```bash
-uv run pytest        # game engine, timeouts, reactions, room service, snapshots, results, tokens, static URLs
+.venv/bin/python -m pytest   # game engine, timeouts, reactions, room service, snapshots, results, tokens, static URLs
 uv run ruff check . && uv run ruff format .
 ```
 
@@ -41,16 +41,50 @@ rooms, round deadlines and presence are in Redis, so a restarted process resumes
 
 ### Logs
 
-One JSON object per line on stdout. Every HTTP request and WebSocket connection gets a
-`request_id` (taken from an incoming `X-Request-ID` header, otherwise generated, and returned
-in the `X-Request-ID` response header), and every line logged while handling it, including
-uvicorn's access line and any traceback, carries that id plus `room` and, once known,
-`player_id`. One request: filter by `request_id`. A whole game across endpoints, sockets and
-replicas: filter by `room`.
+One JSON object per line on stdout, from every process (web, worker and the migration job):
+
+| Field | Meaning |
+|---|---|
+| `timestamp`, `level`, `message`, `logger` | RFC 3339 UTC time, `debug`...`critical`, text, Python logger |
+| `service.name` | `storyfeta-web`, `storyfeta-worker` or `storyfeta-migrate` |
+| `service.version`, `env` | `SERVICE_VERSION` (default: package version) and `APP_ENV` |
+| `request_id` | one per HTTP request / WebSocket connection: taken from an incoming `X-Request-ID` header or generated, returned in the `X-Request-ID` response header |
+| `room`, `player_id` | the room code and player, once known |
+| `exception` | traceback, when there is one |
+
+uvicorn's access log is replaced by a structured `app.access` line per request: `method`,
+`path`, `route` (template, e.g. `/api/rooms/{code}`), `status`, `duration_ms`, `client_ip`;
+WebSockets get one when they close, with `close_code`. 5xx are `error`, 4xx `warning`,
+successful `/healthz` and `/readyz` probes `debug`. One request: filter by `request_id`. A whole
+game across endpoints, sockets and replicas: filter by `room`.
 
 ```json
-{"level": "info", "logger": "uvicorn.access", "msg": "... \"POST /api/rooms/ABCD/join HTTP/1.1\" 200", "request_id": "3f9c...", "room": "ABCD", "player_id": "..."}
+{"timestamp": "2026-10-16T11:57:01.548636+00:00", "level": "info", "message": "POST /api/rooms/ABCD/join 200", "logger": "app.access", "service.name": "storyfeta-web", "service.version": "0.2", "env": "production", "request_id": "2eaf1d90...", "room": "ABCD", "player_id": "...", "method": "POST", "path": "/api/rooms/ABCD/join", "route": "/api/rooms/{code}/join", "status": 200, "duration_ms": 8.96, "client_ip": "10.244.0.1"}
 ```
+
+### Log collection on minikube
+
+```
+pod stdout ─▶ /var/log/pods on the node ─▶ Vector (DaemonSet) ─▶ VictoriaLogs ─▶ vmui / LogsQL
+```
+
+- `k8s/40-victoria-logs.yml`: VictoriaLogs single-node (Deployment + 2Gi PVC + ClusterIP
+  Service `victoria-logs:9428`), 7 days or 1500MiB of retention.
+- `k8s/41-vector.yml`: Vector DaemonSet with RBAC. It tails every pod outside `kube-system`, turns
+  JSON lines into fields (non-JSON lines such as postgres/redis stay in `_msg`, with
+  `service.name` = container name), keeps `kubernetes.{namespace,pod,container,node}` and pushes
+  to `/insert/jsonline`. Stream fields: namespace, pod, container.
+- `k8s/42-vmalert.yml`: vmalert with LogsQL alerting rules (errors, slow routes, 4xx bursts)
+  evaluated against VictoriaLogs every 30s; no Alertmanager, see `/vmalert/alerts`
+  (`kubectl port-forward svc/vmalert 8880:8880`).
+
+```bash
+kubectl apply -f k8s/40-victoria-logs.yml -f k8s/41-vector.yml
+kubectl port-forward svc/victoria-logs 9428:9428
+# UI: http://localhost:9428/select/vmui/      API: curl localhost:9428/select/logsql/query -d 'query=_time:5m'
+```
+
+Traffic to query: `python scripts/generate_traffic.py --url http://$(minikube ip):30080`.
 
 ## Structure
 
@@ -68,7 +102,7 @@ app/
   ws/          endpoint.py (/ws/{code}), hub.py (sockets + Redis pub/sub)
   templates/   Jinja2        static/  css/, js/, fonts/, img/
 alembic/       migrations       tests/   pytest, no Redis or sockets needed
-scripts/       fetch_fonts.py (downloads the self-hosted fonts)
+scripts/       fetch_fonts.py (downloads the self-hosted fonts), generate_traffic.py (plays games)
 Dockerfile, docker-compose.yml, Procfile, .env.example
 ```
 

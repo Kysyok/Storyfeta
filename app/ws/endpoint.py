@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
+from starlette.websockets import WebSocketDisconnected
 
 from app.core import security
 from app.core.logging import bind_log_context
@@ -110,8 +111,8 @@ async def room_socket(websocket: WebSocket, code: str) -> None:
                     extra={"type": type(message).__name__, "code": exc.code},
                 )
                 await hub.send_error(connection, exc.code, exc.message)
-    except WebSocketDisconnect:
-        pass
+    except (WebSocketDisconnect, WebSocketDisconnected):
+        pass  # the client left, possibly while we were answering it
     except Exception:
         log.exception("websocket crashed")
     finally:

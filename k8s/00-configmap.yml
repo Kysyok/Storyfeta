@@ -8,6 +8,7 @@ data:
   APP_ENV: production
   PORT: "8000"
   LOG_LEVEL: INFO
+  SERVICE_VERSION: "0.4"    # service.version in logs; keep in sync with the image tag
   COOKIE_SECURE: "false"
   REDIS_URL: redis://redis:6379/0
   DEFAULT_ROUNDS: "5"

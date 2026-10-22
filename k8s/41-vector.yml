@@ -1,0 +1,177 @@
+---
+# Vector as a DaemonSet: one pod per node tails every container's stdout/stderr
+# from the node's /var/log/pods, adds Kubernetes metadata and pushes to VictoriaLogs.
+# Apps only print to stdout; they know nothing about the log backend (12-factor).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vector
+---
+# kubernetes_logs watches pods/namespaces/nodes to attach metadata to each line.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vector
+rules:
+- apiGroups: [""]
+  resources: ["pods", "namespaces", "nodes"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vector
+subjects:
+- kind: ServiceAccount
+  name: vector
+  namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+data:
+  vector.yaml: |
+    data_dir: /vector-data-dir    # read positions, so a restart doesn't resend everything
+    api:
+      enabled: true               # /health for the probes
+      address: 0.0.0.0:8686
+
+    sources:
+      k8s:
+        type: kubernetes_logs
+        # The control plane's own logs are noise for this app.
+        extra_field_selector: metadata.namespace!=kube-system
+
+    transforms:
+      # One flat-ish record per line:
+      #  - JSON lines (our apps, VictoriaLogs itself) become fields; ts/msg are renamed
+      #    to timestamp/message so every JSON source looks alike;
+      #  - plain-text lines (postgres, redis) keep the text in message;
+      #  - service.name falls back to the container name;
+      #  - only the useful Kubernetes metadata is kept.
+      normalize:
+        type: remap
+        inputs: [k8s]
+        source: |
+          k = object(.kubernetes) ?? {}
+          event = {"message": .message}
+          parsed, err = parse_json(.message)
+          if err == null && is_object(parsed) {
+            event = object!(parsed)
+            if !exists(event.message) && exists(event.msg) { event.message = del(event.msg) }
+            if !exists(event.timestamp) && exists(event.ts) { event.timestamp = del(event.ts) }
+          }
+          if !exists(event.timestamp) { event.timestamp = .timestamp }
+          if !exists(event."service.name") { event."service.name" = k.container_name }
+          event.stream = .stream
+          event.kubernetes = {
+            "namespace": k.pod_namespace,
+            "pod": k.pod_name,
+            "container": k.container_name,
+            "node": k.pod_node_name,
+          }
+          . = event
+
+    sinks:
+      # JSON lines API. _stream_fields: low-cardinality fields naming the source
+      # (never request_id/room); _msg_field/_time_field: our schema's names.
+      victoria_logs:
+        type: http
+        inputs: [normalize]
+        uri: http://victoria-logs:9428/insert/jsonline?_stream_fields=kubernetes.namespace,kubernetes.pod,kubernetes.container&_msg_field=message&_time_field=timestamp
+        encoding:
+          codec: json
+        framing:
+          method: newline_delimited
+        compression: gzip
+        healthcheck:
+          enabled: false
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vector
+spec:
+  selector:
+    matchLabels:
+      app: vector
+  template:
+    metadata:
+      labels:
+        app: vector
+        vector.dev/exclude: "true"   # don't ship Vector's own logs (avoids loops)
+    spec:
+      serviceAccountName: vector
+      containers:
+      - name: vector
+        image: timberio/vector:0.58.0-distroless-libc
+        args: ["--config-dir", "/etc/vector/"]
+        env:
+        # kubernetes_logs reads only the pods of the node it runs on.
+        - name: VECTOR_SELF_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: VECTOR_SELF_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: VECTOR_SELF_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: api
+          containerPort: 8686
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: api
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/vector
+          readOnly: true
+        - name: data
+          mountPath: /vector-data-dir
+        # /var/log/pods/*/*.log are symlinks into the runtime's directory
+        # (/var/lib/docker/containers on minikube), so both are needed.
+        - name: var-log
+          mountPath: /var/log
+          readOnly: true
+        - name: var-lib
+          mountPath: /var/lib
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: vector-config
+      - name: data
+        hostPath:
+          path: /var/lib/vector
+          type: DirectoryOrCreate
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: var-lib
+        hostPath:
+          path: /var/lib
+...

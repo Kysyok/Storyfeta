@@ -96,7 +96,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Build the FastAPI application."""
-    configure_logging(get_settings().log_level)
+    settings = get_settings()
+    configure_logging(
+        "storyfeta-web",
+        level=settings.log_level,
+        service_version=settings.service_version,
+        env=settings.app_env,
+    )
     app = FastAPI(
         title="Storyfeta",
         lifespan=lifespan,

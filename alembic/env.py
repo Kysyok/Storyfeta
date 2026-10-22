@@ -1,7 +1,7 @@
 """Alembic environment: async engine, URL from DATABASE_URL, run as ``alembic upgrade head``.
 
 DATABASE_URL is read like the app reads it: the environment first, then ``.env``
-(local development only).
+(local development only). Logs go to stdout as JSON, like the web and worker.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from app.core.logging import configure_logging
 from app.models.orm import Base
 
 config = context.config
@@ -26,10 +27,13 @@ class _MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str | None = None
+    log_level: str = "INFO"
+    app_env: str = "development"
+    service_version: str | None = None
 
 
 def _url() -> str:
-    url = _MigrationSettings().database_url
+    url = _settings.database_url
     if not url:
         raise RuntimeError("DATABASE_URL must be set to run migrations")
     return url
@@ -57,6 +61,14 @@ async def run_migrations_online() -> None:
         await connection.run_sync(_run)
     await engine.dispose()
 
+
+_settings = _MigrationSettings()
+configure_logging(
+    "storyfeta-migrate",
+    level=_settings.log_level,
+    service_version=_settings.service_version,
+    env=_settings.app_env,
+)
 
 if context.is_offline_mode():
     run_migrations_offline()

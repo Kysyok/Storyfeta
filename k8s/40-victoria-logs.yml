@@ -1,0 +1,86 @@
+---
+# VictoriaLogs single-node: log storage and LogsQL queries.
+# In the cluster: http://victoria-logs:9428 (Vector pushes to /insert/jsonline).
+# From your machine: kubectl port-forward svc/victoria-logs 9428:9428
+#   then open http://localhost:9428/select/vmui/
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: victoria-logs-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victoria-logs
+spec:
+  replicas: 1               # single-node: one process owns the data directory
+  selector:
+    matchLabels:
+      app: victoria-logs
+  strategy:
+    type: Recreate          # one pod at a time may own the volume
+  template:
+    metadata:
+      labels:
+        app: victoria-logs
+    spec:
+      containers:
+      - name: victoria-logs
+        image: victoriametrics/victoria-logs:v1.53.0
+        args:
+        - -storageDataPath=/vlogs
+        - -httpListenAddr=:9428
+        - -retentionPeriod=7d
+        # Drop the oldest days before the 2Gi volume fills up.
+        - -retention.maxDiskSpaceUsageBytes=1500MiB
+        - -loggerFormat=json
+        ports:
+        - name: http
+          containerPort: 9428
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: data
+          mountPath: /vlogs
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: victoria-logs-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoria-logs
+spec:
+  ports:
+  - name: http
+    port: 9428
+    targetPort: http
+  selector:
+    app: victoria-logs
+  type: ClusterIP
+...
